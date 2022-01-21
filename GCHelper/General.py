@@ -7,8 +7,7 @@ Created on Fri Jan 21 16:03:02 2022
 """
 
 """
-A series of functions to aid in evaluating RL models for glucose control during
-my PhD project. 
+Functions for general use across data collection, training and evaluation. 
 """
 
 import math
@@ -20,15 +19,14 @@ When provided with a blood glucose output from UVA/Padova simulator it
 calculates the corresponding magni risk and returns as a floats. 
 """
 def calculate_risk(blood_glucose):
-    return 10 * math.pow((3.5506 * (math.pow(math.log(max(1, blood_glucose[0])), 0.8353) - 3.7932)), 2)
-    
+    return 10 * math.pow((3.5506 * (math.pow(math.log(max(1, blood_glucose[0])), 0.8353) - 3.7932)), 2)    
     
 """
 Uses the current blood glucose value, meal history and current meals carbs
 to calculate the optimal bolus dose for a meal for a patient
 """    
 def calculate_bolus(blood_glucose, meal_history, current_meal, 
-                    carbohyrdate_ratio, correction_factor, target_blood_glucose, timestep):   
+                    carbohyrdate_ratio, correction_factor, target_blood_glucose):   
 
     # calculate the meal bolus using meal carbs
     bolus = current_meal / carbohyrdate_ratio
@@ -39,8 +37,7 @@ def calculate_bolus(blood_glucose, meal_history, current_meal,
         # correct the bolus for high or low blood glucose
         bolus += (blood_glucose[0] - target_blood_glucose) / correction_factor
         
-    return bolus / timestep
-
+    return bolus / 3
 
 """
 When given the current blood glucose value determine if it falls in range and 
@@ -58,7 +55,7 @@ Calculate the recommended basal dose for a patient based on their current
 blood glucose and their parameters.
 """            
 def PID_action(blood_glucose, previous_error, integrated_state, 
-               target_blood_glucose, kp, ki, kd, basal_default, timestep):
+               target_blood_glucose, kp, ki, kd, basal_default):
     
     # proportional control
     error = target_blood_glucose - blood_glucose[0] 
@@ -73,7 +70,7 @@ def PID_action(blood_glucose, previous_error, integrated_state,
     previous_error = error
     
     # get the final dose output
-    calculated_dose = np.array([(p_act + i_act + d_act + basal_default) / timestep], dtype=np.float32)
+    calculated_dose = np.array([(p_act + i_act + d_act + basal_default) / 3], dtype=np.float32)
     
     return calculated_dose, previous_error, integrated_state
         
