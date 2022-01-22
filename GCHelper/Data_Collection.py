@@ -14,7 +14,7 @@ import numpy as np
 import pickle
 from collections import defaultdict
 
-from General import PID_action, calculate_bolus, calculate_risk
+from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_risk
 
 
 """

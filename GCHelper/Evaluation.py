@@ -14,14 +14,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch, random
 
-from General import PID_action, calculate_bolus, calculate_risk
+from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_risk
 
 
 """
 Test the learned policy of an agent against the PID algorithm over a 
 specified length of time.
 """
-def test_algorithm(env, agent, seed=0, max_timesteps=480, sequence_length=80,
+def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length=80,
                    data_processing="condensed", pid_run=False, params=None):
     
     # Unpack the params
@@ -51,7 +51,7 @@ def test_algorithm(env, agent, seed=0, max_timesteps=480, sequence_length=80,
     rl_insulin, rl_meals = [], []
 
     # select the number of iterations    
-    if pid_run: runs = 2
+    if not pid_run: runs = 2
     else: runs = 1
     
     for ep in range(runs):
@@ -113,10 +113,10 @@ def test_algorithm(env, agent, seed=0, max_timesteps=480, sequence_length=80,
                 state = (state - state_mean) / state_std
                 
                 # get the action prediction from the model
-                action = agent.select_action(state)
+                action = agent_action(state)
                                         
                 # Unnormalise action output  
-                action_pred = (action.cpu().data.numpy().flatten() * action_std + action_mean)[0]
+                action_pred = (action * action_std + action_mean)[0]
                 
                 # to stop subtracting from bolus when -ve
                 action_pred = max(0, action_pred)
@@ -215,7 +215,12 @@ carbohyrdates.
 """
 
 def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
-                 pid_reward, pid_blood_glucose, pid_action, basal_default):
+                 pid_reward, pid_blood_glucose, pid_action, params):
+    
+    # Unpack the params
+    
+    # Diabetes
+    basal_default = params.get("basal_default") 
     
     # TODO: add the function for printing metrics like TIR for PID vs RL
     
@@ -226,7 +231,7 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     if len(pid_blood_glucose) == len(rl_blood_glucose):
                 
         # get the x-axis 
-        x = list(range(len(pid_reward)))
+        x = list(range(len(pid_blood_glucose)))
         
         # Initialise the plot and specify the title
         fig = plt.figure(dpi=160)
@@ -246,7 +251,7 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         
         # specify the limits and the axis lables
         axs[0].axis(ymin=50, ymax=500)
-        axs[0].axis(xmin=0.0, xmax=len(pid_reward))
+        axs[0].axis(xmin=0.0, xmax=len(pid_blood_glucose))
         axs[0].set_ylabel("BG \n(mg/dL)")
         axs[0].set_xlabel("Time \n(mins)")
         
