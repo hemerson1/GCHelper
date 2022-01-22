@@ -29,6 +29,7 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, b
     # Random data generation -------------------------------------------------
     
     new_replay = fill_replay(replay_length=random_timesteps,env=env, 
+                             replay_name=replay_name,
                              player="random", bolus_noise=bolus_noise, 
                              seed=seed, params=params
                              )
@@ -37,7 +38,9 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, b
     
     # Expert data generation -------------------------------------------------
     
-    full_replay = fill_replay(replay_length=expert_timesteps, replay=new_replay,
+    full_replay = fill_replay(replay_length=expert_timesteps, 
+                              replay_name=replay_name,
+                              replay=new_replay,
                               env=env, player="expert",
                               bolus_noise=bolus_noise, seed=seed, 
                               params=params
@@ -54,7 +57,7 @@ demonstrator. The replay produced is a list containing individual trajectories
 stopping when the agent terminates or the max number of days is reached.
 """
 
-def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', bolus_noise=None, params=None):
+def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', bolus_noise=None, seed=0, params=None):
     
     # Unpack the additional parameters
     
@@ -77,7 +80,7 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
     dt = params.get("ou_dt", 0.9) 
     
     # seed numpy and the environment
-    seed = 0
+    seed = seed
     np.random.seed(seed)
     env.seed(seed)
     
