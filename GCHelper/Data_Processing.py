@@ -24,7 +24,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
     # initialise the data lists
     states, rewards, actions, dones = [], [], [], []
     
-    for path in trajectories:  
+    for path in trajectories: 
         
         # states include blood glucose, meal carbs, insulin dose, time 
         states += path['state']
@@ -35,112 +35,112 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         # ensure that the last state is always a terminal state
         dones[-1] = True             
         
-        # initialise the lists
-        processed_states, processed_next_states, processed_rewards, processed_actions, processed_dones  = [], [], [], [], []
-        decay_state = np.arange(1 / (sequence_length + 2), 1, 1 / (sequence_length + 2))
-        counter = 0 
-        
-        # Condense the state -------------------------------------------------
-        
-        # 4hr | 3.5hr | 3hr | 2.5hr | 2hr | 1.5hr | 1hr | 0.5hr | 0hr | meal_on_board | insulin_on_board
-        if data_processing == "condensed":
-            
-            for idx, state in enumerate(states):
-                
-                # if there are 80 states previously
-                if counter >= (sequence_length) and idx + 1 != len(states):
-                    
-                    # add rewards, actions and dones
-                    processed_rewards.append(rewards[idx])
-                    processed_actions.append(actions[idx])
-                    processed_dones.append(dones[idx])
-                    
-                    # current state -----------------------------------------
-                    
-                    # unpackage the values
-                    related_states = states[idx - sequence_length: idx + 1]  
-                    related_bgs, related_meals, related_insulins, _ = zip(*related_states)
-                    
-                    # extract the correct metrics
-                    extracted_bg = related_bgs[::10]
-                    meals_on_board = [np.sum(np.array(related_meals) * decay_state)]
-                    insulin_on_board = [np.sum(np.array(related_insulins) * decay_state)]
-                    
-                    # append the state
-                    processed_state = list(extracted_bg) + meals_on_board + insulin_on_board
-                    processed_states.append(processed_state)   
-                    
-                    # next state -----------------------------------------
-                    
-                    # unpackage the values
-                    related_next_states = states[(idx - sequence_length) + 1: idx + 1 + 1]  
-                    related_next_bgs, related_next_meals, related_next_insulins, _ = zip(*related_next_states)
-                    
-                    # extract the correct metrics
-                    extracted_next_bg = related_next_bgs[::10]
-                    next_meals_on_board = [np.sum(np.array(related_next_meals) * decay_state)]
-                    next_insulin_on_board = [np.sum(np.array(related_next_insulins) * decay_state)]  
-                    
-                    # append the state
-                    processed_next_state = list(extracted_next_bg) + next_meals_on_board + next_insulin_on_board
-                    processed_next_states.append(processed_next_state) 
-                
-                # update the counter
-                counter += 1
-                if dones[idx]:
-                    counter = 0   
-                    
-                    
-        # Create a sequence -------------------------------------------------
-        
-        elif data_processing == "sequence":        
-        
-            for idx, state in enumerate(states):
-                
-                # if there are 80 states previously
-                if counter >= (sequence_length) and idx + 1 != len(states):
-                    
-                    # add rewards, actions and dones
-                    processed_rewards.append(rewards[idx - sequence_length:idx])
-                    processed_actions.append(actions[idx - sequence_length:idx])
-                    processed_dones.append(dones[idx - sequence_length:idx])
-                    
-                    extracted_states = [state[:3] for state in states[idx - sequence_length:idx]]
-                    processed_states.append(extracted_states)
-                
-                # update the counter
-                counter += 1
-                if dones[idx]:
-                    counter = 0   
-                    
-                    
-        # Normalisaiton ------------------------------------------------------
-        array_states = np.array(processed_states)
-        array_actions = np.array(processed_actions)        
-        
-        if data_processing == "condensed":
-            
-            # ensure the state mean and std are consistent across blood glucose
-            state_mean, state_std = np.mean(array_states, axis=0), np.std(array_states, axis=0)
-            action_mean, action_std = np.mean(array_actions, axis=0), np.std(array_actions, axis=0)             
-            state_mean[:-2], state_std[:-2]  = state_mean[0], state_std[0]    
-            
-        elif data_processing == "sequence":
-            
-            # reshape array and calculate mean and std
-            state_size, action_size = array_states.shape[2], array_actions.shape[2] 
-            state_mean = np.mean(array_states.reshape(-1, state_size), axis=0)
-            state_std = np.std(array_states.reshape(-1, state_size), axis=0)
-            action_mean = np.mean(array_actions.reshape(-1, action_size), axis=0)
-            action_std = np.std(array_actions.reshape(-1, action_size), axis=0)                     
-        
-        # load in new replay ----------------------------------------------------
-        
-        for idx, state in enumerate(processed_states):
-            empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx], processed_dones[idx]))
-        full_replay = empty_replay
-        
-        return full_replay, state_mean, state_std, action_mean, action_std
+    # initialise the lists
+    processed_states, processed_next_states, processed_rewards, processed_actions, processed_dones  = [], [], [], [], []
+    decay_state = np.arange(1 / (sequence_length + 2), 1, 1 / (sequence_length + 2))
+    counter = 0 
+
+    # Condense the state -------------------------------------------------
+
+    # 4hr | 3.5hr | 3hr | 2.5hr | 2hr | 1.5hr | 1hr | 0.5hr | 0hr | meal_on_board | insulin_on_board
+    if data_processing == "condensed":
+
+        for idx, state in enumerate(states):
+
+            # if there are 80 states previously
+            if counter >= (sequence_length) and idx + 1 != len(states):
+
+                # add rewards, actions and dones
+                processed_rewards.append(rewards[idx])
+                processed_actions.append(actions[idx])
+                processed_dones.append(dones[idx])
+
+                # current state -----------------------------------------
+
+                # unpackage the values
+                related_states = states[idx - sequence_length: idx + 1]  
+                related_bgs, related_meals, related_insulins, _ = zip(*related_states)
+
+                # extract the correct metrics
+                extracted_bg = related_bgs[::10]
+                meals_on_board = [np.sum(np.array(related_meals) * decay_state)]
+                insulin_on_board = [np.sum(np.array(related_insulins) * decay_state)]
+
+                # append the state
+                processed_state = list(extracted_bg) + meals_on_board + insulin_on_board
+                processed_states.append(processed_state)   
+
+                # next state -----------------------------------------
+
+                # unpackage the values
+                related_next_states = states[(idx - sequence_length) + 1: idx + 1 + 1]  
+                related_next_bgs, related_next_meals, related_next_insulins, _ = zip(*related_next_states)
+
+                # extract the correct metrics
+                extracted_next_bg = related_next_bgs[::10]
+                next_meals_on_board = [np.sum(np.array(related_next_meals) * decay_state)]
+                next_insulin_on_board = [np.sum(np.array(related_next_insulins) * decay_state)]  
+
+                # append the state
+                processed_next_state = list(extracted_next_bg) + next_meals_on_board + next_insulin_on_board
+                processed_next_states.append(processed_next_state) 
+
+            # update the counter
+            counter += 1
+            if dones[idx]:
+                counter = 0   
+
+
+    # Create a sequence -------------------------------------------------
+
+    elif data_processing == "sequence":        
+
+        for idx, state in enumerate(states):
+
+            # if there are 80 states previously
+            if counter >= (sequence_length) and idx + 1 != len(states):
+
+                # add rewards, actions and dones
+                processed_rewards.append(rewards[idx - sequence_length:idx])
+                processed_actions.append(actions[idx - sequence_length:idx])
+                processed_dones.append(dones[idx - sequence_length:idx])
+
+                extracted_states = [state[:3] for state in states[idx - sequence_length:idx]]
+                processed_states.append(extracted_states)
+
+            # update the counter
+            counter += 1
+            if dones[idx]:
+                counter = 0   
+
+
+    # Normalisation ------------------------------------------------------
+    array_states = np.array(processed_states)
+    array_actions = np.array(processed_actions)        
+
+    if data_processing == "condensed":
+
+        # ensure the state mean and std are consistent across blood glucose
+        state_mean, state_std = np.mean(array_states, axis=0), np.std(array_states, axis=0)
+        action_mean, action_std = np.mean(array_actions, axis=0), np.std(array_actions, axis=0)             
+        state_mean[:-2], state_std[:-2]  = state_mean[0], state_std[0]    
+
+    elif data_processing == "sequence":
+
+        # reshape array and calculate mean and std
+        state_size, action_size = array_states.shape[2], array_actions.shape[2] 
+        state_mean = np.mean(array_states.reshape(-1, state_size), axis=0)
+        state_std = np.std(array_states.reshape(-1, state_size), axis=0)
+        action_mean = np.mean(array_actions.reshape(-1, action_size), axis=0)
+        action_std = np.std(array_actions.reshape(-1, action_size), axis=0)                     
+
+    # load in new replay ----------------------------------------------------
+
+    for idx, state in enumerate(processed_states):
+        empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx], processed_dones[idx]))
+    full_replay = empty_replay
+
+    return full_replay, state_mean, state_std, action_mean, action_std
 
 """
 Extracts a batch of data from the full replay and puts it in an appropriate form
