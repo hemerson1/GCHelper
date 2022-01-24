@@ -104,9 +104,11 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
                 processed_rewards.append(rewards[idx - sequence_length:idx])
                 processed_actions.append(actions[idx - sequence_length:idx])
                 processed_dones.append(dones[idx - sequence_length:idx])
-
+                
+                # add the state and next_state
                 extracted_states = [state[:3] for state in states[idx - sequence_length:idx]]
                 processed_states.append(extracted_states)
+                processed_next_states.append(extracted_states[1:] + [[0, 0, 0]])                
 
             # update the counter
             counter += 1
@@ -116,7 +118,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
 
     # Normalisation ------------------------------------------------------
     array_states = np.array(processed_states)
-    array_actions = np.array(processed_actions)        
+    array_actions = np.array(processed_actions)   
 
     if data_processing == "condensed":
 
@@ -135,9 +137,10 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         action_std = np.std(array_actions.reshape(-1, action_size), axis=0)                     
 
     # load in new replay ----------------------------------------------------
-
+           
     for idx, state in enumerate(processed_states):
         empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx], processed_dones[idx]))
+
     full_replay = empty_replay
 
     return full_replay, state_mean, state_std, action_mean, action_std
@@ -164,14 +167,13 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         next_state = np.zeros((batch_size, state_size), dtype=np.float32)
         done = np.zeros(batch_size, dtype=np.uint8)
                 
-    elif data_processing == "sequence":
-        
+    elif data_processing == "sequence":        
         state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
-        action = np.zeros(batch_size, sequence_length, dtype=np.float32)        
-        reward = np.zeros(batch_size, sequence_length, dtype=np.float32)
+        action = np.zeros((batch_size, sequence_length), dtype=np.float32)        
+        reward = np.zeros((batch_size, sequence_length), dtype=np.float32)
         next_state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
-        done = np.zeros(batch_size, sequence_length, dtype=np.uint8)            
-
+        done = np.zeros((batch_size, sequence_length), dtype=np.uint8)                
+    
     # unpack the batch
     for i in range(len(minibatch)):
         state[i], action[i], reward[i], next_state[i], done[i] = minibatch[i]  

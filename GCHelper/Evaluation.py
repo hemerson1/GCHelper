@@ -190,8 +190,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 pid_blood_glucose.append(next_bg_val[0])
                 pid_action.append(player_action)
                 pid_reward += reward
-                
-                
+                                
             # Update the state ---------------------------------------------
 
             # update the meal history
