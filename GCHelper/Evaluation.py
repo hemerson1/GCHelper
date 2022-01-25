@@ -69,6 +69,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
         meal, done, bg_val = 0, False, env.reset()
         time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3) / 479
         state = np.array([bg_val[0], meal, insulin_dose, time], dtype=np.float32)
+        last_action = insulin_dose
 
         # get a suitable input
         state_stack = np.tile(state, (sequence_length + 1, 1))
@@ -103,17 +104,22 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                     meals_on_board, insulin_on_board = np.sum(meal_vals * decay_factor), np.sum(insulin_vals * decay_factor) 
                     
                     # create the state
-                    state = np.concatenate([bg_vals, meals_on_board.reshape(1), insulin_on_board.reshape(1)])
+                    state = np.concatenate([bg_vals, meals_on_board.reshape(1), insulin_on_board.reshape(1)])  
+                    prev_action = last_action
+                    
+                # TOOD: replace with explicity state and action size
                 
                 # get the state a sequence of specified length
                 elif data_processing == "sequence":
                     state = state_stack[1:, :3].reshape(1, sequence_length, 3) 
+                    prev_action = action_stack[1:, :].reshape(1, sequence_length)
                                             
                 # Normalise the current state
                 state = (state - state_mean) / state_std
+                prev_action = (prev_action - action_mean) / action_std
                 
                 # get the action prediction from the model
-                action = agent_action(state)
+                action = agent_action(state, prev_action, timesteps)
                                         
                 # Unnormalise action output  
                 action_pred = (action * action_std + action_mean)[0]
@@ -202,6 +208,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
 
             # update the state
             bg_val, state, meal = next_bg_val, next_state, info['meal']
+            last_action = player_action
             timesteps += 1 
             
     return rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals, pid_reward, pid_blood_glucose, pid_action

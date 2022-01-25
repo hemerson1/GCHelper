@@ -19,7 +19,10 @@ Converts a list of trajectories gathered from the data_colleciton algorithm into
 a replay with samples appropriate for model training along with state and action
 means and stds.
 """
-def unpackage_replay(trajectories, empty_replay, data_processing="condensed", sequence_length=80):
+def unpackage_replay(trajectories, empty_replay, data_processing="condensed", sequence_length=80, params=None):
+    
+    # TODO: add functionality to change gamma if necessary
+    gamma = 1.0   
     
     # initialise the data lists
     states, rewards, actions, dones = [], [], [], []
@@ -36,7 +39,8 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         dones[-1] = True             
         
     # initialise the lists
-    processed_states, processed_next_states, processed_rewards, processed_actions, processed_dones  = [], [], [], [], []
+    processed_states, processed_next_states, processed_rewards, processed_actions = [], [], [], []
+    processed_dones, processed_timesteps, processed_reward_to_go  = [], [], []
     decay_state = np.arange(1 / (sequence_length + 2), 1, 1 / (sequence_length + 2))
     counter = 0 
 
@@ -46,14 +50,20 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
     if data_processing == "condensed":
 
         for idx, state in enumerate(states):
+            
+            # find the next done index
+            if idx == 0 or dones[max(idx - 1, 0)]:
+                done_index = idx + dones[idx:].index(True)
 
             # if there are 80 states previously
-            if counter >= (sequence_length) and idx + 1 != len(states):
+            if counter >= (sequence_length) and idx + 1 != len(states):  
 
-                # add rewards, actions and dones
+                # add rewards, actions, dones and timestep label
                 processed_rewards.append(rewards[idx])
                 processed_actions.append(actions[idx])
                 processed_dones.append(dones[idx])
+                processed_timesteps.append(counter)
+                processed_reward_to_go.append(sum(rewards[idx: done_index]))
 
                 # current state -----------------------------------------
 
@@ -93,17 +103,28 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
 
     # Create a sequence -------------------------------------------------
 
-    elif data_processing == "sequence":        
-
+    elif data_processing == "sequence": 
+        
         for idx, state in enumerate(states):
+            
+            # find the next done index            
+            if idx == 0 or dones[max(idx - 1, 0)]:
+                done_index = idx + dones[idx:].index(True) 
 
             # if there are 80 states previously
-            if counter >= (sequence_length) and idx + 1 != len(states):
+            if counter >= (sequence_length) and idx + 1 != len(states):                                           
 
                 # add rewards, actions and dones
                 processed_rewards.append(rewards[idx - sequence_length:idx])
                 processed_actions.append(actions[idx - sequence_length:idx])
                 processed_dones.append(dones[idx - sequence_length:idx])
+                processed_timesteps.append(list(range(counter - sequence_length, counter)))
+                
+                # get the reward_to_go
+                rewards_to_go = [sum(rewards[(idx + 1) : done_index])]
+                for i in range(sequence_length - 1):
+                    rewards_to_go.append(rewards_to_go[-1] + rewards[idx -  i])                     
+                processed_reward_to_go.append(rewards_to_go[::-1])                
                 
                 # add the state and next_state
                 extracted_states = [state[:3] for state in states[idx - sequence_length:idx]]
@@ -113,18 +134,19 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
             # update the counter
             counter += 1
             if dones[idx]:
-                counter = 0   
-
+                counter = 0  
 
     # Normalisation ------------------------------------------------------
     array_states = np.array(processed_states)
     array_actions = np.array(processed_actions)   
+    array_rewards = np.array(processed_rewards)
 
     if data_processing == "condensed":
 
         # ensure the state mean and std are consistent across blood glucose
         state_mean, state_std = np.mean(array_states, axis=0), np.std(array_states, axis=0)
-        action_mean, action_std = np.mean(array_actions, axis=0), np.std(array_actions, axis=0)             
+        action_mean, action_std = np.mean(array_actions, axis=0), np.std(array_actions, axis=0)   
+        reward_mean, reward_std = np.mean(array_rewards, axis=0), np.std(array_rewards, axis=0) 
         state_mean[:-2], state_std[:-2]  = state_mean[0], state_std[0]    
 
     elif data_processing == "sequence":
@@ -134,16 +156,19 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         state_mean = np.mean(array_states.reshape(-1, state_size), axis=0)
         state_std = np.std(array_states.reshape(-1, state_size), axis=0)
         action_mean = np.mean(array_actions.reshape(-1, action_size), axis=0)
-        action_std = np.std(array_actions.reshape(-1, action_size), axis=0)                     
+        action_std = np.std(array_actions.reshape(-1, action_size), axis=0)      
+        reward_mean = np.mean(array_rewards.reshape(-1, 1), axis=0)
+        reward_std = np.std(array_rewards.reshape(-1, 1), axis=0) 
 
     # load in new replay ----------------------------------------------------
            
     for idx, state in enumerate(processed_states):
-        empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx], processed_dones[idx]))
+        empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx],
+                             processed_dones[idx], processed_timesteps[idx], processed_reward_to_go[idx]))
 
     full_replay = empty_replay
 
-    return full_replay, state_mean, state_std, action_mean, action_std
+    return full_replay, state_mean, state_std, action_mean, action_std, reward_mean, reward_std
 
 """
 Extracts a batch of data from the full replay and puts it in an appropriate form
@@ -156,6 +181,9 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     state_std = params.get("state_std")  
     action_mean = params.get("action_mean")  
     action_std = params.get("action_std")  
+    reward_mean = params.get("reward_mean")  
+    reward_std = params.get("reward_std")  
+    reward_scale = params.get("reward_scale", 1.0)
     
     # sample a minibatch
     minibatch = random.sample(replay, batch_size)
@@ -166,30 +194,40 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         reward = np.zeros(batch_size, dtype=np.float32)
         next_state = np.zeros((batch_size, state_size), dtype=np.float32)
         done = np.zeros(batch_size, dtype=np.uint8)
+        timestep = np.zeros(batch_size, dtype=np.float32)
+        reward_to_go = np.zeros(batch_size, dtype=np.float32)
                 
     elif data_processing == "sequence":        
         state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
         action = np.zeros((batch_size, sequence_length), dtype=np.float32)        
         reward = np.zeros((batch_size, sequence_length), dtype=np.float32)
         next_state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
-        done = np.zeros((batch_size, sequence_length), dtype=np.uint8)                
+        done = np.zeros((batch_size, sequence_length), dtype=np.uint8)   
+        timestep = np.zeros((batch_size, sequence_length), dtype=np.float32)
+        reward_to_go = np.zeros((batch_size, sequence_length), dtype=np.float32)
     
     # unpack the batch
     for i in range(len(minibatch)):
-        state[i], action[i], reward[i], next_state[i], done[i] = minibatch[i]  
+        state[i], action[i], reward[i], next_state[i], done[i], timestep[i], reward_to_go[i] = minibatch[i]  
     
     # convert to torch
     state = torch.FloatTensor((state - state_mean) / state_std).to(device)
     action = torch.FloatTensor((action - action_mean) / action_std).to(device)
-    reward = torch.FloatTensor(reward).to(device)
     next_state = torch.FloatTensor((next_state - state_mean) / state_std).to(device)
     done = torch.FloatTensor(1 - done).to(device)
+    reward_to_go = torch.FloatTensor(reward_to_go / reward_scale).to(device)
+    timestep = torch.tensor(timestep, dtype=torch.int32).to(device)
+    
+    # get norm of reward
+    if reward_mean: reward = torch.FloatTensor((reward - reward_mean) / reward_std).to(device)
+    else: reward = torch.FloatTensor(reward).to(device)
                 
     # Modify Dimensions
-    action = action.unsqueeze(1)
-    reward = reward.unsqueeze(1)
+    action = action.unsqueeze(-1)
+    reward = reward.unsqueeze(-1)
+    reward_to_go = reward_to_go.unsqueeze(-1)
     
-    return state, action, reward, next_state, done
+    return state, action, reward, next_state, done, timestep, reward_to_go
             
             
         
