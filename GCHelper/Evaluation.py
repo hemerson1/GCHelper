@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch, random
 
-from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_risk
+from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_risk, is_in_range
 
 
 """
@@ -219,19 +219,48 @@ Plot a four-tiered graph comparing the blood glucose control of a PID
 and RL algorithm, showing the blood glucose, insulin doses and meal 
 carbohyrdates.
 """
-
 def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
                  pid_reward, pid_blood_glucose, pid_action, params):
     
     # Unpack the params
     
     # Diabetes
-    basal_default = params.get("basal_default") 
+    basal_default = params.get("basal_default")    
+    hyper_threshold = params.get("hyper_threshold", 180) 
+    hypo_threshold = params.get("hypo_threshold ", 70)
     
-    # TODO: add the function for printing metrics like TIR for PID vs RL
+    # Display the evaluation metrics
     
-    # Display the reward results
+    # TIR Metrics ----------------------------------------------
+    
+    # PID algorithm
+    pid_in_range, pid_above_range, pid_below_range, pid_total = 0, 0, 0, len(pid_blood_glucose)
+    for pid_bg in pid_blood_glucose:
+        
+        # classify the blood glucose_value
+        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold)        
+        if classification == 0: pid_in_range += 1
+        elif classification == 1: pid_above_range += 1
+        else: pid_below_range += 1
+    
+    # RL algorithm
+    rl_in_range, rl_above_range, rl_below_range, rl_total = 0, 0, 0, len(rl_blood_glucose)
+    for rl_bg in rl_blood_glucose:
+        
+        # classify the blood glucose_value
+        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)        
+        if classification == 0: rl_in_range += 1
+        elif classification == 1: rl_above_range += 1
+        else: rl_below_range += 1
+        
+    print('\n---------------------------------')
+    print('RESULTS SUMMARY')
+    print('---------------------------------')
     print('PID Reward: {} - RL Reward: {}'.format(pid_reward, rl_reward))
+    print('PID TIR: {}% - RL TIR: {}%'.format(round(pid_in_range / pid_total * 100, 2), round(rl_in_range / rl_total * 100, 2)))
+    print('PID TAR: {}% - RL TAR: {}%'.format(round(pid_above_range / pid_total * 100, 2), round(rl_above_range / rl_total * 100, 2)))
+    print('PID TBR: {}% - RL TBR: {}%'.format(round(pid_below_range / pid_total * 100, 2), round(rl_below_range / rl_total * 100, 2)))
+    print('---------------------------------')
     
     # Check that the rl algorithm completed the full episode
     if len(pid_blood_glucose) == len(rl_blood_glucose):

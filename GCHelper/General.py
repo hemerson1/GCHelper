@@ -46,8 +46,8 @@ return a value indicating its position.
 def is_in_range(blood_glucose, hypo_threshold, hyper_threshold):
     
         # output: 0 = in range, 1 = hyper, -1 = hypo        
-        if blood_glucose[0] > hyper_threshold: return 1
-        elif blood_glucose[0] < hypo_threshold: return -1
+        if blood_glucose > hyper_threshold: return 1
+        elif blood_glucose < hypo_threshold: return -1
         else: return 0     
   
 """
