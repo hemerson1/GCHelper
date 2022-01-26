@@ -253,14 +253,30 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         elif classification == 1: rl_above_range += 1
         else: rl_below_range += 1
         
-    print('\n---------------------------------')
-    print('RESULTS SUMMARY')
-    print('---------------------------------')
-    print('PID Reward: {} - RL Reward: {}'.format(pid_reward, rl_reward))
-    print('PID TIR: {}% - RL TIR: {}%'.format(round(pid_in_range / pid_total * 100, 2), round(rl_in_range / rl_total * 100, 2)))
-    print('PID TAR: {}% - RL TAR: {}%'.format(round(pid_above_range / pid_total * 100, 2), round(rl_above_range / rl_total * 100, 2)))
-    print('PID TBR: {}% - RL TBR: {}%'.format(round(pid_below_range / pid_total * 100, 2), round(rl_below_range / rl_total * 100, 2)))
-    print('---------------------------------')
+    # Statistical Metrics -----------------------------------------
+    
+    pid_mean, pid_std = np.mean(pid_blood_glucose), np.std(pid_blood_glucose)
+    rl_mean, rl_std = np.mean(rl_blood_glucose), np.std(rl_blood_glucose)
+    pid_cv, rl_cv = (pid_mean / pid_std), (rl_mean / rl_std)
+    
+    # Diabetes Metrics ---------------------------------------------
+    
+    pid_gmi, rl_gmi = (3.38 + 0.02345 * pid_mean), (3.38 + 0.02345 * rl_mean) 
+    
+    print('\n------------------------------------------------------')
+    print('              | {: ^016} | {: ^016} |'.format("PID", "RL"))
+    print('------------------------------------------------------')
+    print('Reward        | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_reward, rl_reward))
+    print('TIR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_in_range / pid_total * 100, rl_in_range / rl_total * 100))
+    print('TAR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_above_range / pid_total * 100, rl_above_range / rl_total * 100))
+    print('TBR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_below_range / pid_total * 100, rl_below_range / rl_total * 100))
+    print('Mean (mg/dl)  | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_mean, rl_mean))
+    print('STD (mg/dl)   | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_std, rl_std))
+    print('CoV           | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_cv, rl_cv))
+    print('GMI (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_gmi, rl_gmi))
+    print('------------------------------------------------------')
+    
+    # Produce the glucose display graph -----------------------------------------------
     
     # Check that the rl algorithm completed the full episode
     if len(pid_blood_glucose) == len(rl_blood_glucose):
