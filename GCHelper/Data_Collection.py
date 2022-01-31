@@ -20,7 +20,7 @@ from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_ris
 """
 Create a replay with a mixture of expert data and random data.
 """
-def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, bolus_noise=None, seed=0, params=None):
+def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, noise=False, bolus_noise=None, seed=0, params=None):
     
     # determine the split of the two datasets
     random_timesteps = int(data_split * replay_length) 
@@ -28,24 +28,32 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, b
     
     # Random data generation -------------------------------------------------
     
-    new_replay = fill_replay(replay_length=random_timesteps,env=env, 
-                             replay_name=replay_name,
-                             player="random", bolus_noise=bolus_noise, 
-                             seed=seed, params=params
-                             )
-    print('Buffer Full with Random policy of size {}'.format(random_timesteps))
+    new_replay = None  
+    if random_timesteps > 0:
     
+        new_replay = fill_replay(replay_length=random_timesteps,env=env, 
+                                 replay_name=replay_name,
+                                 player="random", bolus_noise=bolus_noise, 
+                                 noise=False,
+                                 seed=seed, params=params
+                                 )
+        print('Buffer Full with Random policy of size {}'.format(random_timesteps))  
     
     # Expert data generation -------------------------------------------------
     
-    full_replay = fill_replay(replay_length=expert_timesteps, 
-                              replay_name=replay_name,
-                              replay=new_replay,
-                              env=env, player="expert",
-                              bolus_noise=bolus_noise, seed=seed, 
-                              params=params
-                              )
-    print('Buffer Full with Expert policy of size {}'.format(expert_timesteps))
+    if expert_timesteps > 0:        
+    
+        full_replay = fill_replay(replay_length=expert_timesteps, 
+                                  replay_name=replay_name,
+                                  replay=new_replay,
+                                  env=env, player="expert",
+                                  bolus_noise=bolus_noise, seed=seed, 
+                                  noise=noise,
+                                  params=params
+                                  )
+        print('Buffer Full with Expert policy of size {}'.format(expert_timesteps))        
+    else: 
+        return new_replay
     
     # return the finished replay
     return full_replay
@@ -57,7 +65,7 @@ demonstrator. The replay produced is a list containing individual trajectories
 stopping when the agent terminates or the max number of days is reached.
 """
 
-def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', bolus_noise=None, seed=0, params=None):
+def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', bolus_noise=None, seed=0, params=None, noise=False):
     
     # Unpack the additional parameters
     
@@ -72,7 +80,7 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
     kp, ki, kd = params.get("kp"), params.get("ki"), params.get("kd")
     
     # Bolus
-    cr, cf = params.get("carbohyrdate_ratio"), params.get("correction_factor")
+    cr, cf = params.get("carbohydrate_ratio"), params.get("correction_factor")
         
     # OU Noise
     sigma = params.get("ou_sigma", 0.2) 
@@ -117,9 +125,10 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
             # select the basal dose ------------------------------------------
             
             # calculate the OU noise from the initial parameters 
-            ou_noise = (prev_ou_noise + theta * (0 - prev_ou_noise) * dt + sigma * np.sqrt(dt) * np.random.normal(size=(1,))[0])
-            ou_noise = ou_noise * basal_default
-            prev_ou_noise = ou_noise
+            if noise:
+                ou_noise = (prev_ou_noise + theta * (0 - prev_ou_noise) * dt + sigma * np.sqrt(dt) * np.random.normal(size=(1,))[0])
+                ou_noise = ou_noise * basal_default
+                prev_ou_noise = ou_noise
             
             if player == "random":
                                
@@ -136,9 +145,12 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
                     integrated_state=integrated_state, 
                     target_blood_glucose=target_blood_glucose, 
                     kp=kp, ki=ki, kd=kd, basal_default=basal_default
-                )
+                )                
+                agent_action = np.copy(action)
                 
-                agent_action = np.copy(action + ou_noise)
+            # add on the noise    
+            if noise: agent_action += ou_noise
+            chosen_action = agent_action
                 
             # select the bolus dose ------------------------------------------
 
@@ -179,6 +191,7 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
                        
             # update the replay with trajectory
             sample = [('reward', reward), ('state', state), ('next_state', next_state), ('action', agent_action), ('done', done)]
+                        
             for key, value in sample:
                 trajectory[key].append(value)
             
