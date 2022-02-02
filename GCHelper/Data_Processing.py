@@ -40,7 +40,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         
     # initialise the lists
     processed_states, processed_next_states, processed_rewards, processed_actions = [], [], [], []
-    processed_dones, processed_timesteps, processed_reward_to_go  = [], [], []
+    processed_dones, processed_timesteps, processed_reward_to_go, processed_last_actions  = [], [], []
     decay_state = np.arange(1 / (sequence_length + 2), 1, 1 / (sequence_length + 2))
     counter = 0 
 
@@ -61,6 +61,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
                 # add rewards, actions, dones and timestep label
                 processed_rewards.append(rewards[idx])
                 processed_actions.append(actions[idx])
+                processed_last_actions.append(actions[idx - 1])
                 processed_dones.append(dones[idx])
                 processed_timesteps.append(counter)
                 processed_reward_to_go.append(sum(rewards[idx: done_index]))
@@ -117,6 +118,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
                 # add rewards, actions and dones
                 processed_rewards.append(rewards[idx - sequence_length:idx])
                 processed_actions.append(actions[idx - sequence_length:idx])
+                processed_last_actions.append(actions[(idx - sequence_length) - 1:(idx - 1)])
                 processed_dones.append(dones[idx - sequence_length:idx])
                 processed_timesteps.append(list(range(counter - sequence_length, counter)))
                 
@@ -161,10 +163,14 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         reward_std = np.std(array_rewards.reshape(-1, 1), axis=0) 
 
     # load in new replay ----------------------------------------------------
+    
+    # TODO: do hidden_in and hidden_out need to be explicitly added
            
     for idx, state in enumerate(processed_states):
         empty_replay.append((state, processed_actions[idx], processed_rewards[idx], processed_next_states[idx],
-                             processed_dones[idx], processed_timesteps[idx], processed_reward_to_go[idx]))
+                             processed_dones[idx], processed_timesteps[idx], processed_reward_to_go[idx], 
+                             processed_actions[idx], None, None
+                            ))
 
     full_replay = empty_replay
 
@@ -196,6 +202,10 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         done = np.zeros(batch_size, dtype=np.uint8)
         timestep = np.zeros(batch_size, dtype=np.float32)
         reward_to_go = np.zeros(batch_size, dtype=np.float32)
+        
+        last_action = np.zeros(batch_size, dtype=np.float32) 
+        hidden_in = [0] * batch_size
+        hidden_out = [0] * batch_size
                 
     elif data_processing == "sequence":        
         state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
@@ -205,18 +215,37 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         done = np.zeros((batch_size, sequence_length), dtype=np.uint8)   
         timestep = np.zeros((batch_size, sequence_length), dtype=np.float32)
         reward_to_go = np.zeros((batch_size, sequence_length), dtype=np.float32)
+        
+        last_action = np.zeros((batch_size, sequence_length), dtype=np.float32)    
+        hidden_in = [0] * batch_size
+        hidden_out = [0] * batch_size
     
     # unpack the batch
     for i in range(len(minibatch)):
-        state[i], action[i], reward[i], next_state[i], done[i], timestep[i], reward_to_go[i] = minibatch[i]  
+        state[i], action[i], reward[i], next_state[i], done[i], timestep[i], reward_to_go[i], last_action[i], hidden_in[i], hidden_out[i] = minibatch[i]  
     
     # convert to torch
     state = torch.FloatTensor((state - state_mean) / state_std).to(device)
     action = torch.FloatTensor((action - action_mean) / action_std).to(device)
+    last_action = torch.FloatTensor((last_action - action_mean) / action_std).to(device)    
     next_state = torch.FloatTensor((next_state - state_mean) / state_std).to(device)
     done = torch.FloatTensor(1 - done).to(device)
     reward_to_go = torch.FloatTensor(reward_to_go / reward_scale).to(device)
     timestep = torch.tensor(timestep, dtype=torch.int32).to(device)
+    
+    # if not none
+    if hidden_in[0]:
+        
+        # expand the layers and convert to tensors
+        layer_in, cell_in = list(zip(*hidden_in))
+        layer_out, cell_out = list(zip(*hidden_out))
+        
+        layer_in, cell_in = torch.cat(layer_in, 1).to(device).detach(), torch.cat(cell_in, 1).to(device).detach()
+        layer_out, cell_out = torch.cat(layer_out, 1).to(device).detach(), torch.cat(cell_out, 1).to(device).detach()
+        
+        # convert back to tuples
+        hidden_in, hidden_out = (layer_in, cell_in), (layer_out, cell_out)
+    
     
     # get norm of reward
     if reward_mean: reward = torch.FloatTensor((reward - reward_mean) / reward_std).to(device)
@@ -224,10 +253,12 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
                 
     # Modify Dimensions
     action = action.unsqueeze(-1)
+    last_action = last_action.unsqueeze(-1)
     reward = reward.unsqueeze(-1)
     reward_to_go = reward_to_go.unsqueeze(-1)
+    done =  done.unsqueeze(-1)
     
-    return state, action, reward, next_state, done, timestep, reward_to_go
+    return state, action, reward, next_state, done, timestep, reward_to_go, last_action, hidden_in, hidden_out
             
             
         

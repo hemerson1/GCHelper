@@ -22,7 +22,7 @@ Test the learned policy of an agent against the PID algorithm over a
 specified length of time.
 """
 def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length=80,
-                   data_processing="condensed", pid_run=False, params=None):
+                   data_processing="condensed", pid_run=False, lstm=False, params=None):
     
     # Unpack the params
     
@@ -44,6 +44,13 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
     state_std = params.get("state_std")  
     action_mean = params.get("action_mean")  
     action_std = params.get("action_std")
+    
+    # Device
+    device = params.get("device")
+    
+    # Network
+    model_dim = params.get("model_dim", 256)
+    
     
     # initialise the arrays for data collection    
     rl_reward, rl_blood_glucose, rl_action = 0, [], []
@@ -86,7 +93,11 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
         # intiialise pid parameters
         integrated_state = 0
         previous_error = 0
-        timesteps = 0        
+        timesteps = 0    
+        
+        # init the hidden_layer
+        hidden_in = hidden_in = (torch.zeros([1, 1, model_dim], dtype=torch.float).to(device),
+                         torch.zeros([1, 1, model_dim], dtype=torch.float).to(device)) 
         
         while not done and timesteps < max_timesteps:
             
@@ -119,7 +130,10 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 prev_action = (prev_action - action_mean) / action_std
                 
                 # get the action prediction from the model
-                action = agent_action(state, prev_action, timesteps)
+                if lstm:
+                    action, hidden_in = agent_action(state, prev_action, timestep=timesteps, hidden_in=hidden_in)                    
+                else:
+                    action = agent_action(state, prev_action, timestep=timesteps)                    
                                         
                 # Unnormalise action output  
                 action_pred = (action * action_std + action_mean)[0]
