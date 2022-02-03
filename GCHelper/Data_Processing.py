@@ -207,15 +207,15 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         hidden_in = [0] * batch_size
         hidden_out = [0] * batch_size
                 
-    elif data_processing == "sequence":        
+    elif data_processing == "sequence": 
+        
         state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
         action = np.zeros((batch_size, sequence_length), dtype=np.float32)        
         reward = np.zeros((batch_size, sequence_length), dtype=np.float32)
         next_state = np.zeros((batch_size, sequence_length, state_size), dtype=np.float32)
         done = np.zeros((batch_size, sequence_length), dtype=np.uint8)   
         timestep = np.zeros((batch_size, sequence_length), dtype=np.float32)
-        reward_to_go = np.zeros((batch_size, sequence_length), dtype=np.float32)
-        
+        reward_to_go = np.zeros((batch_size, sequence_length), dtype=np.float32)        
         last_action = np.zeros((batch_size, sequence_length), dtype=np.float32)    
         hidden_in = [0] * batch_size
         hidden_out = [0] * batch_size
@@ -233,6 +233,10 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     reward_to_go = torch.FloatTensor(reward_to_go / reward_scale).to(device)
     timestep = torch.tensor(timestep, dtype=torch.int32).to(device)
     
+    # get norm of reward
+    if reward_mean: reward = torch.FloatTensor((reward - reward_mean) / reward_std).to(device)
+    else: reward = torch.FloatTensor(reward).to(device)
+    
     # if not none
     if hidden_in[0]:
         
@@ -245,11 +249,6 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         
         # convert back to tuples
         hidden_in, hidden_out = (layer_in, cell_in), (layer_out, cell_out)
-    
-    
-    # get norm of reward
-    if reward_mean: reward = torch.FloatTensor((reward - reward_mean) / reward_std).to(device)
-    else: reward = torch.FloatTensor(reward).to(device)
                 
     # Modify Dimensions
     action = action.unsqueeze(-1)
@@ -259,7 +258,6 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     done =  done.unsqueeze(-1)
     
     return state, action, reward, next_state, done, timestep, reward_to_go, last_action, hidden_in, hidden_out
-            
             
         
     
