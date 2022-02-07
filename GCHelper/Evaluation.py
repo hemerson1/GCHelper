@@ -261,8 +261,7 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     rl_in_range, rl_above_range, rl_below_range, rl_total = 0, 0, 0, len(rl_blood_glucose)
     for rl_bg in rl_blood_glucose:
         
-        # classify the blood glucose_value
-        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)        
+        #      
         if classification == 0: rl_in_range += 1
         elif classification == 1: rl_above_range += 1
         else: rl_below_range += 1
@@ -271,29 +270,105 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     
     pid_mean, pid_std = np.mean(pid_blood_glucose), np.std(pid_blood_glucose)
     rl_mean, rl_std = np.mean(rl_blood_glucose), np.std(rl_blood_glucose)
-    pid_cv, rl_cv = (pid_mean / pid_std), (rl_mean / rl_std)
+    pid_cv, rl_cv = (pid_std / pid_mean), (rl_std / rl_mean)
     
     # Diabetes Metrics ---------------------------------------------
     
-    pid_gmi, rl_gmi = (3.38 + 0.02345 * pid_mean), (3.38 + 0.02345 * rl_mean) 
+    # get the average hypo/hyper length for PID 
+    pid_hypo_length, pid_hyper_length = [], []
+    prev_classification, hypo_count, hyper_count = 0, 0, 0
     
-    print('\n------------------------------------------------------')
-    print('              | {: ^016} | {: ^016} |'.format("PID", "RL"))
-    print('------------------------------------------------------')
-    print('Reward        | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_reward, rl_reward))
-    print('TIR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_in_range / pid_total * 100, rl_in_range / rl_total * 100))
-    print('TAR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_above_range / pid_total * 100, rl_above_range / rl_total * 100))
-    print('TBR (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_below_range / pid_total * 100, rl_below_range / rl_total * 100))
-    print('Mean (mg/dl)  | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_mean, rl_mean))
-    print('STD (mg/dl)   | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_std, rl_std))
-    print('CoV           | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_cv, rl_cv))
-    print('GMI (%)       | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_gmi, rl_gmi))
-    print('------------------------------------------------------')
+    for pid_bg in pid_blood_glucose:
+        
+        # classify the blood glucose_value
+        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold)  
+        
+        # if continued hyper
+        if classification == +1:
+            
+            # add to the hyper count
+            if prev_classification == +1:
+                hyper_count += 1
+                
+            # reset the count
+            else:
+                pid_hyper_length.append(hyper_count * 3)
+                hyper_count = 0
+                
+        # if continued hypo
+        if classification == -1:
+            
+            # add to the hypo count
+            if prev_classification == -1:
+                hypo_count += 1
+                
+            # reset the count
+            else:
+                pid_hypo_length.append(hypo_count * 3)
+                hypo_count = 0
+                
+        prev_classification = classification
+        
+    # get the average hypo/hyper length for RL
+    rl_hypo_length, rl_hyper_length = [], []
+    prev_classification, hypo_count, hyper_count = 0, 0, 0
+    
+    for rl_bg in rl_blood_glucose:
+        
+        # classify the blood glucose_value
+        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)  
+        
+        # if continued hyper
+        if classification == +1:
+            
+            # add to the hyper count
+            if prev_classification == +1:
+                hyper_count += 1
+                
+            # reset the count
+            else:
+                rl_hyper_length.append(hyper_count * 3)
+                hyper_count = 0
+                
+        # if continued hypo
+        if classification == -1:
+            
+            # add to the hypo count
+            if prev_classification == -1:
+                hypo_count += 1
+                
+            # reset the count
+            else:
+                rl_hypo_length.append(hypo_count * 3)
+                hypo_count = 0
+                
+        prev_classification = classification
+        
+    mean_pid_hypo_length = sum(pid_hypo_length) / len(pid_hypo_length)
+    mean_pid_hyper_length = sum(pid_hyper_length) / len(pid_hyper_length)
+    mean_rl_hypo_length = sum(rl_hypo_length) / len(rl_hypo_length)
+    mean_rl_hyper_length = sum(rl_hyper_length) / len(rl_hyper_length)    
+    
+    print('\n-----------------------------------------------------------')
+    print('                    | {: ^016} | {: ^016} |'.format("PID", "RL"))
+    print('-----------------------------------------------------------')
+    print('Reward              | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_reward, rl_reward))
+    print('TIR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_in_range / pid_total * 100, rl_in_range / rl_total * 100))
+    print('TAR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_above_range / pid_total * 100, rl_above_range / rl_total * 100))
+    print('TBR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_below_range / pid_total * 100, rl_below_range / rl_total * 100))
+    print('Mean (mg/dl)        | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_mean, rl_mean))
+    print('STD (mg/dl)         | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_std, rl_std))
+    print('CoV                 | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_cv, rl_cv))
+    print('Hyper Length (mins) | {: ^#016.2f} | {: ^#016.2f} |'.format(mean_pid_hyper_length, mean_rl_hyper_length))
+    print('Hypo Length (mins)  | {: ^#016.2f} | {: ^#016.2f} |'.format(mean_pid_hypo_length, mean_rl_hypo_length))
+    print('-----------------------------------------------------------')
     
     # Produce the glucose display graph -----------------------------------------------
     
     # Check that the rl algorithm completed the full episode
-    if len(pid_blood_glucose) == len(rl_blood_glucose):
+    if len(pid_blood_glucose) == len(rl_blood_glucose):        
+        
+        # Plot insulin actions alongside blood glucose ------------------------------
                 
         # get the x-axis 
         x = list(range(len(pid_blood_glucose)))
@@ -339,7 +414,20 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         # Hide x labels and tick labels for all but bottom plot.
         for ax in axs:
             ax.label_outer()
-
+        
+        # Plot the distribution of states ------------------------------
+        
+        bins = numpy.linspace(10, 1000, 10)
+        
+        # plot the bins and the legend
+        plt.hist(pid_blood_glucose, bins, alpha=0.5, label='pid')
+        plt.hist(rl_blood_glucose, bins, alpha=0.5, label='rl')
+        plt.legend(loc='upper right')
+        
+        # mark the target range
+        plt.axvline(hyper_threshold, color='k', linestyle='dashed', linewidth=1)
+        plt.axvline(hypo_threshold, color='k', linestyle='dashed', linewidth=1)
+        
         plt.show()
     
     # specify the timesteps before termination
