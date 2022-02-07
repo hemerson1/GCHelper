@@ -93,7 +93,8 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
         # intiialise pid parameters
         integrated_state = 0
         previous_error = 0
-        timesteps = 0    
+        timesteps = 0 
+        reward = 0
         
         # init the hidden_layer
         hidden_in = hidden_in = (torch.zeros([1, 1, model_dim], dtype=torch.float).to(device),
@@ -133,7 +134,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 if lstm:
                     action, hidden_in = agent_action(state, prev_action, timestep=timesteps, hidden_in=hidden_in)                    
                 else:
-                    action = agent_action(state, prev_action, timestep=timesteps)                    
+                    action = agent_action(state, prev_action, timestep=timesteps, prev_reward=reward)                    
                                         
                 # Unnormalise action output  
                 action_pred = (action * action_std + action_mean)[0]
@@ -261,7 +262,8 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     rl_in_range, rl_above_range, rl_below_range, rl_total = 0, 0, 0, len(rl_blood_glucose)
     for rl_bg in rl_blood_glucose:
         
-        #      
+        # classify the blood glucose_value        
+        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)      
         if classification == 0: rl_in_range += 1
         elif classification == 1: rl_above_range += 1
         else: rl_below_range += 1
@@ -344,10 +346,10 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
                 
         prev_classification = classification
         
-    mean_pid_hypo_length = sum(pid_hypo_length) / len(pid_hypo_length)
-    mean_pid_hyper_length = sum(pid_hyper_length) / len(pid_hyper_length)
-    mean_rl_hypo_length = sum(rl_hypo_length) / len(rl_hypo_length)
-    mean_rl_hyper_length = sum(rl_hyper_length) / len(rl_hyper_length)    
+    mean_pid_hypo_length = sum(pid_hypo_length) / max(len(pid_hypo_length), 1)
+    mean_pid_hyper_length = sum(pid_hyper_length) / max(len(pid_hyper_length), 1)
+    mean_rl_hypo_length = sum(rl_hypo_length) / max(len(rl_hypo_length), 1)
+    mean_rl_hyper_length = sum(rl_hyper_length) / max(len(rl_hyper_length), 1)    
     
     print('\n-----------------------------------------------------------')
     print('                    | {: ^016} | {: ^016} |'.format("PID", "RL"))
@@ -414,19 +416,28 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         # Hide x labels and tick labels for all but bottom plot.
         for ax in axs:
             ax.label_outer()
+            
+        plt.show()
         
         # Plot the distribution of states ------------------------------
         
-        bins = numpy.linspace(10, 1000, 10)
+        fig2 = plt.figure(dpi=160)
+        
+        bins = np.linspace(10, 1000, 100)
         
         # plot the bins and the legend
-        plt.hist(pid_blood_glucose, bins, alpha=0.5, label='pid')
-        plt.hist(rl_blood_glucose, bins, alpha=0.5, label='rl')
+        plt.hist(pid_blood_glucose, bins, alpha=0.5, label='pid', color='orange')
+        plt.hist(rl_blood_glucose, bins, alpha=0.5, label='rl', color='dodgerblue')
         plt.legend(loc='upper right')
         
         # mark the target range
         plt.axvline(hyper_threshold, color='k', linestyle='dashed', linewidth=1)
         plt.axvline(hypo_threshold, color='k', linestyle='dashed', linewidth=1)
+        
+        # set the axis labels
+        plt.xlabel("Blood glucose (mg/dl)")
+        plt.ylabel("Frequency")
+        plt.title("Blood glucose distribution")
         
         plt.show()
     

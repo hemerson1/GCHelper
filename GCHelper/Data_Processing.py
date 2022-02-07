@@ -40,7 +40,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
         
     # initialise the lists
     processed_states, processed_next_states, processed_rewards, processed_actions = [], [], [], []
-    processed_dones, processed_timesteps, processed_reward_to_go, processed_last_actions  = [], [], []
+    processed_dones, processed_timesteps, processed_reward_to_go, processed_last_actions  = [], [], [], []
     decay_state = np.arange(1 / (sequence_length + 2), 1, 1 / (sequence_length + 2))
     counter = 0 
 
