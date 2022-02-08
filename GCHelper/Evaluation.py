@@ -132,7 +132,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 
                 # get the action prediction from the model
                 if lstm:
-                    action, hidden_in = agent_action(state, prev_action, timestep=timesteps, hidden_in=hidden_in)                    
+                    action, hidden_in = agent_action(state, prev_action, timestep=timesteps, hidden_in=hidden_in, prev_reward=reward)                    
                 else:
                     action = agent_action(state, prev_action, timestep=timesteps, prev_reward=reward)                    
                                         
