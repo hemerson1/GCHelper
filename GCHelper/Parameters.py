@@ -138,10 +138,10 @@ def get_params():
             "BW" : 41.23304017, 
             "carbohydrate_ratio": 31.2073322051186,
             "correction_factor": 112.346395938427,
-            "kp": None,
-            "ki": None,
-            "kd": None,
-            "max_dose": None,
+            "kp": -1.00E-05,
+            "ki": -1.00E-08,
+            "kd": -1.00E-02,
+            "max_dose": 0.7,
             "replay_name" : "Child#3-1e5"
         
         },
@@ -186,10 +186,10 @@ def get_params():
             "BW" : 44.791, 
             "carbohydrate_ratio": 20.6246970212749,
             "correction_factor": 74.2489092765897,
-            "kp": None,
-            "ki": None,
-            "kd": None,
-            "max_dose": None,
+            "kp": -1.00E-04,
+            "ki": -1.00E-07,
+            "kd": -1.00E-02,
+            "max_dose": 1.2,
             "replay_name" : "Adolescent#3-1e5"
         
         },  
@@ -234,10 +234,10 @@ def get_params():
             "BW" : 81.631, 
             "carbohydrate_ratio": 8.86057935797141,
             "correction_factor": 31.8980856886971,
-            "kp": None,
-            "ki": None,
-            "kd": None,
-            "max_dose": None, 
+            "kp": -1.00E-04,
+            "ki": -1.00E-07,
+            "kd": -1.00E-02,
+            "max_dose": 0.9, 
             "replay_name" : "Adult#3-1e5"
         
         } 
