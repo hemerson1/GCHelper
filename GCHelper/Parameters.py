@@ -140,7 +140,7 @@ def get_params():
             "correction_factor": 112.346395938427,
             "kp": -1.00E-05,
             "ki": -1.00E-08,
-            "kd": -1.00E-02,
+            "kd": -1.00E-03,
             "max_dose": 0.7,
             "replay_name" : "Child#3-1e5"
         
