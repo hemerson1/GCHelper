@@ -164,7 +164,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
 
                 bolus_action = calculate_bolus(
                     blood_glucose=bg_val, meal_history=meal_history,
-                    current_meal=meal,carbohyrdate_ratio=cr, 
+                    current_meal=meal, carbohyrdate_ratio=cr, 
                     correction_factor=cf, 
                     target_blood_glucose=target_blood_glucose
                     ) 

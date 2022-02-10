@@ -33,6 +33,14 @@ def create_env(schedule):
                 "schedule":schedule
                }
     )
+    
+    register(
+        id='simglucose-child3-v0',
+        entry_point='simglucose.envs:T1DSimEnv',
+        kwargs={'patient_name': 'child#003',
+                "schedule":schedule
+               }
+    )
 
     register(
         id='simglucose-adolescent1-v0',
@@ -49,6 +57,14 @@ def create_env(schedule):
                 "schedule":schedule
                }
     )
+    
+    register(
+        id='simglucose-adolescent3-v0',
+        entry_point='simglucose.envs:T1DSimEnv',
+        kwargs={'patient_name': 'adolescent#003',
+                "schedule":schedule
+               }
+    )
 
     register(
         id='simglucose-adult1-v0',
@@ -62,6 +78,14 @@ def create_env(schedule):
         id='simglucose-adult2-v0',
         entry_point='simglucose.envs:T1DSimEnv',
         kwargs={'patient_name': 'adult#002',
+                "schedule":schedule
+               }
+    )
+    
+    register(
+        id='simglucose-adult3-v0',
+        entry_point='simglucose.envs:T1DSimEnv',
+        kwargs={'patient_name': 'adult#003',
                 "schedule":schedule
                }
     )
@@ -106,6 +130,22 @@ def get_params():
         
         },
         
+        "child#3": {
+            
+            "folder_name": "child#3",            
+            "env_name" : 'simglucose-child3-v0',
+            "u2ss" : 0.70038560703,
+            "BW" : 41.23304017, 
+            "carbohydrate_ratio": 31.2073322051186,
+            "correction_factor": 112.346395938427,
+            "kp": None,
+            "ki": None,
+            "kd": None,
+            "max_dose": None,
+            "replay_name" : "Child#3-1e5"
+        
+        },
+        
         "adolescent#1": {
             
             "folder_name": "adolescent#1",              
@@ -136,7 +176,23 @@ def get_params():
             "max_dose": 1.5,
             "replay_name" : "Adolescent#2-1e5"
         
-        },        
+        },      
+        
+        "adolescent#3": {
+            
+            "folder_name": "adolescent#3", 
+            "env_name" : 'simglucose-adolescent3-v0',
+            "u2ss" : 1.4462660088,
+            "BW" : 44.791, 
+            "carbohydrate_ratio": 20.6246970212749,
+            "correction_factor": 74.2489092765897,
+            "kp": None,
+            "ki": None,
+            "kd": None,
+            "max_dose": None,
+            "replay_name" : "Adolescent#3-1e5"
+        
+        },  
         
         "adult#1": {
             
@@ -168,7 +224,23 @@ def get_params():
             "max_dose": 0.7, 
             "replay_name" : "Adult#2-1e5"
         
-        }        
+        },
+        
+        "adult#3": {
+            
+            "folder_name": "adult#3",   
+            "env_name" : 'simglucose-adult3-v0',
+            "u2ss" : 1.74604298612,
+            "BW" : 81.631, 
+            "carbohydrate_ratio": 8.86057935797141,
+            "correction_factor": 31.8980856886971,
+            "kp": None,
+            "ki": None,
+            "kd": None,
+            "max_dose": None, 
+            "replay_name" : "Adult#3-1e5"
+        
+        } 
     
     }
     
