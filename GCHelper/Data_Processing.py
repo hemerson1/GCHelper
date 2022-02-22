@@ -234,9 +234,10 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     timestep = torch.tensor(timestep, dtype=torch.int32).to(device)
     
     # get norm of reward
-    if reward_mean: reward = torch.FloatTensor((reward - reward_mean) / reward_std).to(device)
+    if reward_mean: reward = torch.FloatTensor(reward_scale * (reward - reward_mean) / reward_std).to(device)
     else: reward = torch.FloatTensor(reward).to(device)
     
+    """
     # if not none
     if hidden_in[0]:
         
@@ -249,6 +250,14 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
         
         # convert back to tuples
         hidden_in, hidden_out = (layer_in, cell_in), (layer_out, cell_out)
+    """
+       
+    if hidden_in:
+        
+        # concatentate the layers
+        layer_in = torch.cat(hidden_in, 1).to(device).detach()
+        layer_out = torch.cat(hidden_out, 1).to(device).detach()        
+        hidden_in, hidden_out = layer_in, layer_out
                 
     # Modify Dimensions
     action = action.unsqueeze(-1)
