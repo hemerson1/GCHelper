@@ -179,7 +179,7 @@ def unpackage_replay(trajectories, empty_replay, data_processing="condensed", se
 """
 Extracts a batch of data from the full replay and puts it in an appropriate form
 """    
-def get_batch(replay, batch_size, data_processing="condensed", sequence_length=80, device='cpu', params=None):
+def get_batch(replay, batch_size, data_processing="condensed", sequence_length=80, device='cpu', online=True, params=None):
     
     # Environment
     state_size = params.get("state_size")  
@@ -237,27 +237,21 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     if reward_mean: reward = torch.FloatTensor(reward_scale * (reward - reward_mean) / reward_std).to(device)
     else: reward = torch.FloatTensor(reward).to(device)
     
-    """
-    # if not none
-    if hidden_in[0]:
+    if hidden_in is not None and online:
         
-        # expand the layers and convert to tensors
-        layer_in, cell_in = list(zip(*hidden_in))
-        layer_out, cell_out = list(zip(*hidden_out))
+        # process lstm layers
+        if len(hidden_in) > 1:
+            layer_in, cell_in = list(zip(*hidden_in))
+            layer_out, cell_out = list(zip(*hidden_out))
+            layer_in, cell_in = torch.cat(layer_in, 1).to(device).detach(), torch.cat(cell_in, 1).to(device).detach()
+            layer_out, cell_out = torch.cat(layer_out, 1).to(device).detach(), torch.cat(cell_out, 1).to(device).detach()
+            hidden_in, hidden_out = (layer_in, cell_in), (layer_out, cell_out)
         
-        layer_in, cell_in = torch.cat(layer_in, 1).to(device).detach(), torch.cat(cell_in, 1).to(device).detach()
-        layer_out, cell_out = torch.cat(layer_out, 1).to(device).detach(), torch.cat(cell_out, 1).to(device).detach()
-        
-        # convert back to tuples
-        hidden_in, hidden_out = (layer_in, cell_in), (layer_out, cell_out)
-    """
-       
-    if hidden_in:
-        
-        # concatentate the layers
-        layer_in = torch.cat(hidden_in, 1).to(device).detach()
-        layer_out = torch.cat(hidden_out, 1).to(device).detach()        
-        hidden_in, hidden_out = layer_in, layer_out
+        # process gru layers
+        else:
+            layer_in = torch.cat(hidden_in, 1).to(device).detach()
+            layer_out = torch.cat(hidden_out, 1).to(device).detach()        
+            hidden_in, hidden_out = layer_in, layer_out
                 
     # Modify Dimensions
     action = action.unsqueeze(-1)

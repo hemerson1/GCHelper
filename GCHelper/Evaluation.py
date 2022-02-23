@@ -97,8 +97,12 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
         reward = 0
         
         # init the hidden_layer
-        hidden_in = hidden_in = (torch.zeros([1, 1, model_dim], dtype=torch.float).to(device),
-                         torch.zeros([1, 1, model_dim], dtype=torch.float).to(device)) 
+        if params["rnn"] == "gru":
+            hidden_in = torch.zeros([1, 1, model_dim], dtype=torch.float).to(device) 
+            
+        else:                    
+            hidden_in = (torch.zeros([1, 1, model_dim], dtype=torch.float).to(device),
+                             torch.zeros([1, 1, model_dim], dtype=torch.float).to(device)) 
         
         while not done and timesteps < max_timesteps:
             
