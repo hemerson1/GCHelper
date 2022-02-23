@@ -222,8 +222,7 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     
     # unpack the batch
     for i in range(len(minibatch)):
-        state[i], action[i], reward[i], next_state[i], done[i], timestep[i], reward_to_go[i], last_action[i], hidden_in[i], hidden_out[i] = minibatch[i]  
-    
+        state[i], action[i], reward[i], next_state[i], done[i], timestep[i], reward_to_go[i], last_action[i], hidden_in[i], hidden_out[i] = minibatch[i]      
     # convert to torch
     state = torch.FloatTensor((state - state_mean) / state_std).to(device)
     action = torch.FloatTensor((action - action_mean) / action_std).to(device)
@@ -240,7 +239,7 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     if hidden_in is not None and online:
         
         # process lstm layers
-        if len(hidden_in) > 1:
+        if len(hidden_in[0]) > 1:
             layer_in, cell_in = list(zip(*hidden_in))
             layer_out, cell_out = list(zip(*hidden_out))
             layer_in, cell_in = torch.cat(layer_in, 1).to(device).detach(), torch.cat(cell_in, 1).to(device).detach()
