@@ -236,7 +236,7 @@ def get_batch(replay, batch_size, data_processing="condensed", sequence_length=8
     if reward_mean: reward = torch.FloatTensor(reward_scale * (reward - reward_mean) / reward_std).to(device)
     else: reward = torch.FloatTensor(reward).to(device)
     
-    if hidden_in is not None and online:
+    if hidden_in[0] is not None and online:
         
         # process lstm layers
         if len(hidden_in[0]) > 1:

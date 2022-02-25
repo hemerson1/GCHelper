@@ -20,7 +20,8 @@ from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_ris
 """
 Create a replay with a mixture of expert data and random data.
 """
-def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, noise=False, bolus_noise=None, seed=0, params=None):
+def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, 
+                      noise=False, bolus_noise=None, bolus_overestimate=0.0, seed=0, params=None):
     
     # determine the split of the two datasets
     random_timesteps = int(data_split * replay_length) 
@@ -35,6 +36,7 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, n
                                  replay_name=replay_name,
                                  player="random", bolus_noise=bolus_noise, 
                                  noise=False,
+                                 bolus_overestimate=bolus_overestimate,
                                  seed=seed, params=params
                                  )
         print('Buffer Full with Random policy of size {}'.format(random_timesteps))  
@@ -48,6 +50,7 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, n
                                   replay=new_replay,
                                   env=env, player="expert",
                                   bolus_noise=bolus_noise, seed=seed, 
+                                  bolus_overestimate=bolus_overestimate,
                                   noise=noise,
                                   params=params
                                   )
@@ -65,7 +68,8 @@ demonstrator. The replay produced is a list containing individual trajectories
 stopping when the agent terminates or the max number of days is reached.
 """
 
-def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', bolus_noise=None, seed=0, params=None, noise=False):
+def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random',
+                bolus_noise=None, seed=0, params=None, noise=False, bolus_overestimate=0.0):
     
     # Unpack the additional parameters
     
@@ -157,11 +161,14 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
             if meal > 0: 
                 
                 # save the adjusted meal
-                adjusted_meal = meal
+                adjusted_meal = meal                  
                 
                 # add some calculation error in bolus
                 if bolus_noise:
-                    adjusted_meal += bolus_noise * adjusted_meal * np.random.uniform(-1, 1, 1)[0]                    
+                    adjusted_meal += bolus_noise * adjusted_meal * np.random.uniform(-1, 1, 1)[0]   
+                
+                # add a bias to the bolus estimation
+                adjusted_meal += bolus_overestimate * meal  
                 
                 # calculate the bolus dose 
                 chosen_action = calculate_bolus(

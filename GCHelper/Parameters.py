@@ -114,6 +114,38 @@ def get_params():
             
         },
         
+        "child#1-20": {
+            
+            "folder_name": "child#1",  
+            "env_name" : 'simglucose-child1-v0',
+            "u2ss" : 1.14220356012,
+            "BW" : 34.55648182, 
+            "carbohydrate_ratio": 28.6156949676669,
+            "correction_factor": 103.016501883601,
+            "kp": -1.00E-06,
+            "ki": -1.00E-10,
+            "kd": -1.00E-04,
+            "max_dose": 0.6,
+            "replay_name" : "Child#1-1e5-20"          
+            
+        },
+        
+        "child#1-40": {
+            
+            "folder_name": "child#1",  
+            "env_name" : 'simglucose-child1-v0',
+            "u2ss" : 1.14220356012,
+            "BW" : 34.55648182, 
+            "carbohydrate_ratio": 28.6156949676669,
+            "correction_factor": 103.016501883601,
+            "kp": -1.00E-04,
+            "ki": -1.00E-11,
+            "kd": -1.00E-03,
+            "max_dose": 0.6,
+            "replay_name" : "Child#1-1e5-40"          
+            
+        },
+        
         "child#2": {
             
             "folder_name": "child#2",            

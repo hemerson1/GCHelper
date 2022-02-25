@@ -33,6 +33,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
     # Bolus
     cr = params.get("carbohydrate_ratio")
     cf = params.get("correction_factor")
+    bolus_overestimate =params.get("bolus_overestimate", 0.0)
     
     # PID
     kp = params.get("kp")
@@ -164,11 +165,15 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
             # Get the meal bolus --------------------------------------------
 
             # take meal bolus
-            if meal > 0:      
+            if meal > 0:   
+                
+                # add a bias to the bolus estimation
+                adjusted_meal = meal
+                adjusted_meal += bolus_overestimate * meal 
 
                 bolus_action = calculate_bolus(
                     blood_glucose=bg_val, meal_history=meal_history,
-                    current_meal=meal, carbohyrdate_ratio=cr, 
+                    current_meal=adjusted_meal, carbohyrdate_ratio=cr, 
                     correction_factor=cf, 
                     target_blood_glucose=target_blood_glucose
                     ) 
