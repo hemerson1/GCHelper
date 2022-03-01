@@ -251,7 +251,9 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     # Diabetes
     basal_default = params.get("basal_default")    
     hyper_threshold = params.get("hyper_threshold", 180) 
+    sig_hyper_threshold = params.get("sig_hyper_threshold", 250)
     hypo_threshold = params.get("hypo_threshold ", 70)
+    sig_hypo_threshold = params.get("sig_hypo_threshold ", 54)
     
     # Display the evaluation metrics
     
@@ -259,23 +261,51 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     
     # PID algorithm
     pid_in_range, pid_above_range, pid_below_range, pid_total = 0, 0, 0, len(pid_blood_glucose)
+    pid_sig_above_range, pid_sig_below_range = 0, 0 
     for pid_bg in pid_blood_glucose:
         
         # classify the blood glucose_value
-        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold)        
-        if classification == 0: pid_in_range += 1
-        elif classification == 1: pid_above_range += 1
-        else: pid_below_range += 1
+        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold, sig_hypo_threshold, sig_hyper_threshold)   
+        
+        # in range
+        if classification == 0: 
+            pid_in_range += 1
+            
+        # hyperglycaemia
+        elif classification > 0:
+            pid_above_range += 1
+            if classification > 1:
+                pid_sig_above_range += 1            
+        
+        # hypoglycaemia 
+        else: 
+            pid_below_range += 1
+            if classification > -1:
+                pid_sig_below_range += 1  
     
     # RL algorithm
     rl_in_range, rl_above_range, rl_below_range, rl_total = 0, 0, 0, len(rl_blood_glucose)
+    rl_sig_above_range, rl_sig_below_range = 0, 0    
     for rl_bg in rl_blood_glucose:
         
         # classify the blood glucose_value        
-        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)      
-        if classification == 0: rl_in_range += 1
-        elif classification == 1: rl_above_range += 1
-        else: rl_below_range += 1
+        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold, sig_hypo_threshold, sig_hyper_threshold)  
+        
+        # in range
+        if classification == 0: 
+            rl_in_range += 1
+        
+        # hyperglycaemia
+        elif classification > 0: 
+            rl_above_range += 1
+            if classification > 1:
+                rl_sig_above_range += 1
+                
+        # hypoglycaemia    
+        else: 
+            rl_below_range += 1
+            if classification < -1:
+                rl_sig_below_range += 1
         
     # Statistical Metrics -----------------------------------------
     
@@ -292,13 +322,13 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     for pid_bg in pid_blood_glucose:
         
         # classify the blood glucose_value
-        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold)  
+        classification = is_in_range(pid_bg, hypo_threshold, hyper_threshold, sig_hypo_threshold, sig_hyper_threshold)  
         
         # if continued hyper
-        if classification == +1:
+        if classification > 0:
             
             # add to the hyper count
-            if prev_classification == +1:
+            if prev_classification > 0:
                 hyper_count += 1
                 
             # reset the count
@@ -307,10 +337,10 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
                 hyper_count = 0
                 
         # if continued hypo
-        if classification == -1:
+        if classification < 0:
             
             # add to the hypo count
-            if prev_classification == -1:
+            if prev_classification < 0:
                 hypo_count += 1
                 
             # reset the count
@@ -327,13 +357,13 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     for rl_bg in rl_blood_glucose:
         
         # classify the blood glucose_value
-        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold)  
+        classification = is_in_range(rl_bg, hypo_threshold, hyper_threshold, sig_hypo_threshold, sig_hyper_threshold)  
         
         # if continued hyper
-        if classification == +1:
+        if classification > 0:
             
             # add to the hyper count
-            if prev_classification == +1:
+            if prev_classification > 0:
                 hyper_count += 1
                 
             # reset the count
@@ -342,10 +372,10 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
                 hyper_count = 0
                 
         # if continued hypo
-        if classification == -1:
+        if classification < 0:
             
             # add to the hypo count
-            if prev_classification == -1:
+            if prev_classification < 0:
                 hypo_count += 1
                 
             # reset the count
@@ -366,7 +396,11 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     print('Reward              | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_reward, rl_reward))
     print('TIR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_in_range / pid_total * 100, rl_in_range / rl_total * 100))
     print('TAR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_above_range / pid_total * 100, rl_above_range / rl_total * 100))
-    print('TBR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_below_range / pid_total * 100, rl_below_range / rl_total * 100))
+    print('TMAR (%)            | {: ^#016.2f} | {: ^#016.2f} |'.format((pid_above_range - pid_sig_above_range) / pid_total * 100, (rl_above_range - rl_sig_above_range) / rl_total * 100))
+    print('TSAR (%)            | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_sig_above_range / pid_total * 100, rl_sig_above_range / rl_total * 100))    
+    print('TBR (%)             | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_below_range / pid_total * 100, rl_below_range / rl_total * 100))  
+    print('TMBR (%)            | {: ^#016.2f} | {: ^#016.2f} |'.format((pid_below_range - pid_sig_below_range) / pid_total * 100, (rl_below_range - rl_sig_below_range) / rl_total * 100))
+    print('TSBR (%)            | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_sig_below_range / pid_total * 100, rl_sig_below_range / rl_total * 100))    
     print('Mean (mg/dl)        | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_mean, rl_mean))
     print('STD (mg/dl)         | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_std, rl_std))
     print('CoV                 | {: ^#016.2f} | {: ^#016.2f} |'.format(pid_cv, rl_cv))

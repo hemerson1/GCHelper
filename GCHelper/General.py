@@ -43,10 +43,12 @@ def calculate_bolus(blood_glucose, meal_history, current_meal,
 When given the current blood glucose value determine if it falls in range and 
 return a value indicating its position.
 """    
-def is_in_range(blood_glucose, hypo_threshold, hyper_threshold):
+def is_in_range(blood_glucose, hypo_threshold, hyper_threshold, sig_hypo_threshold, sig_hyper_threshold):
     
-        # output: 0 = in range, 1 = hyper, -1 = hypo        
-        if blood_glucose > hyper_threshold: return 1
+        # output: 0 = in range, 1 = hyper, -1 = hypo 
+        if blood_glucose > sig_hyper_threshold: return 2     
+        elif blood_glucose > hyper_threshold: return 1
+        elif blood_glucose < sig_hypo_threshold: return -2   
         elif blood_glucose < hypo_threshold: return -1
         else: return 0     
   
