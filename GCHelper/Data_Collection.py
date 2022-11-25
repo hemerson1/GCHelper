@@ -20,7 +20,7 @@ from GCHelper.GCHelper.General import PID_action, calculate_bolus, calculate_ris
 """
 Create a replay with a mixture of expert data and random data.
 """
-def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, 
+def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000, meal_announce=0,
                       noise=False, bolus_noise=None, bolus_overestimate=0.0, seed=0, params=None):
     
     # determine the split of the two datasets
@@ -35,7 +35,7 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000,
         new_replay = fill_replay(replay_length=random_timesteps,env=env, 
                                  replay_name=replay_name,
                                  player="random", bolus_noise=bolus_noise, 
-                                 noise=False,
+                                 noise=False, meal_announce=meal_announce,
                                  bolus_overestimate=bolus_overestimate,
                                  seed=seed, params=params
                                  )
@@ -51,6 +51,7 @@ def fill_replay_split(env, replay_name, data_split=0.5, replay_length=100_000,
                                   env=env, player="expert",
                                   bolus_noise=bolus_noise, seed=seed, 
                                   bolus_overestimate=bolus_overestimate,
+                                  meal_announce=meal_announce,
                                   noise=noise,
                                   params=params
                                   )
@@ -68,7 +69,7 @@ demonstrator. The replay produced is a list containing individual trajectories
 stopping when the agent terminates or the max number of days is reached.
 """
 
-def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random',
+def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='random', meal_announce=0.0,
                 bolus_noise=None, seed=0, params=None, noise=False, bolus_overestimate=0.0):
     
     # Unpack the additional parameters
@@ -185,11 +186,31 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
             
             # update the state and get the true reward
             next_bg_val, _, done, info = env.step(chosen_action)                
-            reward = -calculate_risk(next_bg_val)            
+            reward = -calculate_risk(next_bg_val)    
             
-            # configure the next state            
-            time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3) / 479
-            next_state = np.array([next_bg_val[0], meal, chosen_action[0], time], dtype=np.float32)
+            # announce a meal -------------------------------------------
+            
+            # meal announcement
+            meal_input = meal
+            if meal_announce != 0.0:
+                
+                # get times + meal schedule
+                current_time = env.env.time.hour * 60 + env.env.time.minute
+                future_time = current_time + meal_announce - 1
+                meal_scenario = env.env.scenario.scenario["meal"]
+                future_meal = 0
+                
+                # check for future meal                
+                if future_time in meal_scenario["time"]:                    
+                    index = meal_scenario["time"].index(future_time)
+                    future_meal = meal_scenario["amount"][index] 
+                    
+                meal_input = future_meal / 3
+                
+            # configure the next state  ----------------------------------------
+            
+            time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3) / 479            
+            next_state = np.array([next_bg_val[0], meal_input, chosen_action[0], time], dtype=np.float32)                    
             
             # add a termination penalty
             if done: reward = -1e5
@@ -216,7 +237,7 @@ def fill_replay(env, replay_name, replay=None, replay_length=100_000, player='ra
             # update the state
             bg_val, state, meal = next_bg_val, next_state, info['meal']
             counter += 1
-            episode_timestep += 1
+            episode_timestep += 1              
             
             # save the replay ----------------------------------------------
                         

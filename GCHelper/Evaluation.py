@@ -33,7 +33,8 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
     # Bolus
     cr = params.get("carbohydrate_ratio")
     cf = params.get("correction_factor")
-    bolus_overestimate =params.get("bolus_overestimate", 0.0)
+    bolus_overestimate = params.get("bolus_overestimate", 0.0)
+    meal_announce = params.get("meal_announce", 0.0)
     
     # PID
     kp = params.get("kp")
@@ -189,10 +190,29 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
             # step the simulator
             next_bg_val, _, done, info = env.step(chosen_action)
             reward = -calculate_risk(next_bg_val) 
+            
+            # announce a meal -------------------------------------------
+            
+            # meal announcement
+            meal_input = meal
+            if meal_announce != 0.0:
+                
+                # get times + meal schedule
+                current_time = env.env.time.hour * 60 + env.env.time.minute
+                future_time = current_time + meal_announce - 1
+                meal_scenario = env.env.scenario.scenario["meal"]
+                future_meal = 0
+                
+                # check for future meal                
+                if future_time in meal_scenario["time"]:                    
+                    index = meal_scenario["time"].index(future_time)
+                    future_meal = meal_scenario["amount"][index] 
+                    
+                meal_input = future_meal / 3
 
             # get the rnn array format for state
             time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3) / 479
-            next_state = np.array([float(next_bg_val[0]), float(info['meal']), float(chosen_action), time], dtype=np.float32)   
+            next_state = np.array([float(next_bg_val[0]), float(meal_input), float(chosen_action), time], dtype=np.float32)   
 
             # update the state stacks
             next_state_stack = np.delete(state_stack, 0, 0)
@@ -486,3 +506,14 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     
     # specify the timesteps before termination
     else: print('Terminated after: {} timesteps.'.format(len(rl_blood_glucose)))
+    
+    stats = {
+        "reward": rl_reward,
+        "TIR": rl_in_range/rl_total * 100,
+        "TAR": rl_above_range/rl_total * 100,
+        "TBR": rl_below_range / rl_total * 100,
+        "COV": rl_cv    
+    }
+    
+    
+    return stats 
