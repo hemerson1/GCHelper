@@ -49,6 +49,8 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
     
     # Device
     device = params.get("device")
+    missing_data_prob = params.get("missing_data_prob", 0.0)
+    compression_prob = params.get("compression_prob", 0.0)
     
     # Network
     model_dim = params.get("model_dim", 256)
@@ -98,6 +100,13 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
         timesteps = 0 
         reward = 0
         
+        # count missing data period
+        missing_period = 0
+        
+        # add compression error
+        compression_period = 0
+        compression_size = 0
+        
         # init the hidden_layer
         if params["rnn"] == "gru":
             hidden_in = torch.zeros([1, 1, model_dim], dtype=torch.float).to(device) 
@@ -140,8 +149,8 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 if lstm:
                     action, hidden_in = agent_action(state, prev_action, timestep=timesteps, hidden_in=hidden_in, prev_reward=reward)                    
                 else:
-                    action = agent_action(state, prev_action, timestep=timesteps, prev_reward=reward)                    
-                                        
+                    action = agent_action(state, prev_action, timestep=timesteps, prev_reward=reward)       
+                    
                 # Unnormalise action output  
                 action_pred = (action * action_std + action_mean)[0]
                 
@@ -151,7 +160,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 
 
             # Run the pid algorithm ------------------------------------------------------
-            else:                            
+            else:        
                 player_action, previous_error, integrated_state = PID_action(
                     blood_glucose=bg_val, previous_error=previous_error, 
                     integrated_state=integrated_state, 
@@ -171,6 +180,7 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                 # add a bias to the bolus estimation
                 adjusted_meal = meal
                 adjusted_meal += bolus_overestimate * meal 
+                adjusted_meal = max(0, adjusted_meal)
 
                 bolus_action = calculate_bolus(
                     blood_glucose=bg_val, meal_history=meal_history,
@@ -208,10 +218,32 @@ def test_algorithm(env, agent_action, seed=0, max_timesteps=480, sequence_length
                     index = meal_scenario["time"].index(future_time)
                     future_meal = meal_scenario["amount"][index] 
                     
-                meal_input = future_meal / 3
-
+                meal_input = future_meal/3
+            
+            # add missing data to the dataset
+            rand = np.random.rand()
+            if (rand < missing_data_prob) or (missing_period > 0):
+                if missing_period < 1:
+                    prev_bg = 144 # bg_val[0]
+                    missing_period = np.random.randint(10)
+                next_bg_val = [next_bg_val[0]]
+                next_bg_val[0] = 144 # prev_bg
+                
+            # add compression error
+            rand = np.random.rand()
+            if (rand < compression_prob) or (compression_period > 0):
+                if compression_period < 1:                     
+                    compression_period = np.random.randint(10)
+                    compression_size = np.random.randint(30)
+                next_bg_val = [next_bg_val[0]]
+                next_bg_val[0] -= compression_size
+            
+            # step forward in time 
+            missing_period -= 1  
+            compression_period -= 1
+            
             # get the rnn array format for state
-            time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3) / 479
+            time = ((env.env.time.hour * 60) / 3 + env.env.time.minute / 3)/479
             next_state = np.array([float(next_bg_val[0]), float(meal_input), float(chosen_action), time], dtype=np.float32)   
 
             # update the state stacks
@@ -430,13 +462,13 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
     
     # Produce the glucose display graph -----------------------------------------------
     
-    # Check that the rl algorithm completed the full episode
+    # Check that the rl algorithm completed the full episode    
     if len(pid_blood_glucose) == len(rl_blood_glucose):        
         
         # Plot insulin actions alongside blood glucose ------------------------------
                 
         # get the x-axis 
-        x = list(range(len(pid_blood_glucose)))
+        x = list(range(len(rl_blood_glucose)))
         
         # Initialise the plot and specify the title
         fig = plt.figure(dpi=160)
@@ -456,7 +488,7 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         
         # specify the limits and the axis lables
         axs[0].axis(ymin=50, ymax=500)
-        axs[0].axis(xmin=0.0, xmax=len(pid_blood_glucose))
+        axs[0].axis(xmin=0.0, xmax=len(rl_blood_glucose))
         axs[0].set_ylabel("BG \n(mg/dL)")
         axs[0].set_xlabel("Time \n(mins)")
         
@@ -485,7 +517,6 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         # Plot the distribution of states ------------------------------
         
         fig2 = plt.figure(dpi=160)
-        
         bins = np.linspace(10, 1000, 100)
         
         # plot the bins and the legend
@@ -512,7 +543,13 @@ def create_graph(rl_reward, rl_blood_glucose, rl_action, rl_insulin, rl_meals,
         "TIR": rl_in_range/rl_total * 100,
         "TAR": rl_above_range/rl_total * 100,
         "TBR": rl_below_range / rl_total * 100,
-        "COV": rl_cv    
+        "COV": rl_cv,  
+        
+        "pid_reward": pid_reward,
+        "pid_TIR": pid_in_range/pid_total * 100,
+        "pid_TAR": pid_above_range/pid_total * 100,
+        "pid_TBR": pid_below_range / pid_total * 100,
+        "pid_COV": pid_cv,   
     }
     
     
